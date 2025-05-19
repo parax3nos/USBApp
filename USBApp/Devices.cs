@@ -22,11 +22,21 @@ namespace USBApp
         private List<DeviceInfo> PastCopyNowDevices = new List<DeviceInfo>();
         private Panel overlayPanel;
         private List<DeviceInfo> cachedDevices;
+        private System.Windows.Forms.Timer debounceTimer;
 
         // Вызов в конструкторе или при загрузке формы
         public Devices()
         {
             InitializeComponent();
+            debounceTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 1000 // Задержка в 1000 мс
+            };
+            debounceTimer.Tick += (s, e) =>
+            {
+                debounceTimer.Stop(); // Останавливаем таймер
+                LoadDevices();        // Вызываем загрузку устройств
+            };
             overlayPanel = new Panel
             {
                 BackColor = Color.FromArgb(128, 0, 0, 0), // Полупрозрачный серый
@@ -165,12 +175,16 @@ namespace USBApp
 
         private async void LoadDevices()
         {
-            overlayPanel.Visible = true; // Активируем оверлей
-            string psScriptActive = @"
-        $usbDevices = Get-PnpDevice | Where-Object { $_.InstanceId -match '^USB' -and $_.Status -eq 'OK' -and $_.InstanceId -notmatch 'MI_\d{2}' }
-    $result = foreach ($device in $usbDevices) {
+            overlayPanel.Visible = true;
+
+            // Единый PowerShell-скрипт для активных и заблокированных устройств
+            string psScript = @"
+    $activeDevices = Get-PnpDevice | Where-Object { $_.InstanceId -match '^USB' -and $_.Status -eq 'OK' -and $_.InstanceId -notmatch 'MI_\d{2}' }
+    $disabledDevices = Get-PnpDevice | Where-Object { $_.InstanceId -match '^USB' -and $_.ConfigManagerErrorCode -eq 22 }
+    $result = @($activeDevices + $disabledDevices) | ForEach-Object {
+        $device = $_
         $disk = Get-WmiObject Win32_DiskDrive | Where-Object { $_.PNPDeviceID -eq $device.InstanceId -and $_.InterfaceType -eq 'USB' }
-        if ($disk -and $disk.Index -ne $null) {
+        if ($device.Status -eq 'OK' -and $disk -and $disk.Index -ne $null) {
             $logicalDisk = Get-Disk -Number $disk.Index | Get-Partition | Get-Volume | Select-Object DriveLetter, VolumeName, FileSystemLabel
             [PSCustomObject]@{
                 DriveLetter  = if ($logicalDisk.DriveLetter) { ""$($logicalDisk.DriveLetter):"" } else { 'Не найдено' }
@@ -179,6 +193,7 @@ namespace USBApp
                 DeviceName   = if ($disk.Model) { $disk.Model } else { 'Не найдено' }
                 InstanceId   = $device.InstanceId
                 SerialNumber = if ($disk.SerialNumber) { $disk.SerialNumber } else { 'Не найдено' }
+                Status       = $device.Status
             }
         } else {
             $serial = (Get-WmiObject Win32_PnPEntity | Where-Object { $_.PNPDeviceID -eq $device.InstanceId }).SerialNumber
@@ -189,95 +204,34 @@ namespace USBApp
                 DeviceName   = $device.Name
                 InstanceId   = $device.InstanceId
                 SerialNumber = if ($serial) { $serial } else { 'Не найдено' }
+                Status       = $device.Status
             }
         }
     }
-    @($result) | ConvertTo-Json
-    $result
-    ";
+    $result | ConvertTo-Json
+";
 
-            string psScriptDisabled = @"
-        $usbDevices = Get-PnpDevice | Where-Object { $_.InstanceId -match '^USB' -and $_.ConfigManagerErrorCode -eq 22 }
-    $result = foreach ($device in $usbDevices) {
-        $disk = Get-WmiObject Win32_DiskDrive | Where-Object { $_.PNPDeviceID -eq $device.PNPDeviceID }
-        [PSCustomObject]@{
-            DeviceName   = $device.Name
-            InstanceId   = $device.InstanceId
-            Status       = $device.Status
-            SerialNumber = if ($disk) { $disk.SerialNumber } else { 'Не найдено' }
-            VolumeName   = 'Не найдено'
-            Description  = 'Не найдено'
-            DriveLetter  = 'Не найдено'
-        }
-    }
-    @($result) | ConvertTo-Json -Compress
-    $result
-    ";
-
-            DeviceInfo[] activeDevices = null;
-            DeviceInfo[] blockedDevices = null;
-
-            if (cachedDevices != null)
-            {
-                NowDevices.Clear();
-                NowDevices.AddRange(cachedDevices);
-                // Переходите сразу к обновлению UI и БД
-            }
-            else
-            {
-                // Выполняйте PowerShell-запросы и заполняйте cachedDevices
-                NowDevices.Clear();
-                if (activeDevices != null) NowDevices.AddRange(activeDevices);
-                if (blockedDevices != null) NowDevices.AddRange(blockedDevices);
-                cachedDevices = new List<DeviceInfo>(NowDevices); // Сохраняем в кэш
-            }
-
+            DeviceInfo[] devices = null;
             try
             {
-                // Асинхронно выполняем PowerShell-запросы
-                activeDevices = await Task.Run(() =>
+                devices = await Task.Run(() =>
                 {
                     using (PowerShell ps = PowerShell.Create())
                     {
-                        ps.AddScript(psScriptActive);
-                        var outputActive = ps.Invoke();
+                        ps.AddScript(psScript);
+                        var output = ps.Invoke();
                         if (ps.HadErrors)
                         {
-                            this.Invoke((MethodInvoker)(() => MessageBox.Show("Ошибка PowerShell (активные устройства): " + ps.Streams.Error)));
+                            this.Invoke((MethodInvoker)(() => MessageBox.Show("Ошибка PowerShell: " + ps.Streams.Error)));
                             return null;
                         }
 
-                        string jsonActive = outputActive.FirstOrDefault()?.BaseObject.ToString();
-                        if (!string.IsNullOrEmpty(jsonActive))
+                        string json = output.FirstOrDefault()?.BaseObject.ToString();
+                        if (!string.IsNullOrEmpty(json))
                         {
-                            if (jsonActive.StartsWith("["))
-                                return Newtonsoft.Json.JsonConvert.DeserializeObject<DeviceInfo[]>(jsonActive);
-                            else
-                                return new[] { Newtonsoft.Json.JsonConvert.DeserializeObject<DeviceInfo>(jsonActive) };
-                        }
-                        return null;
-                    }
-                });
-
-                blockedDevices = await Task.Run(() =>
-                {
-                    using (PowerShell ps = PowerShell.Create())
-                    {
-                        ps.AddScript(psScriptDisabled);
-                        var outputDisabled = ps.Invoke();
-                        if (ps.HadErrors)
-                        {
-                            this.Invoke((MethodInvoker)(() => MessageBox.Show("Ошибка PowerShell (заблокированные устройства): " + ps.Streams.Error)));
-                            return null;
-                        }
-
-                        string jsonDisabled = outputDisabled.FirstOrDefault()?.BaseObject.ToString();
-                        if (!string.IsNullOrEmpty(jsonDisabled))
-                        {
-                            if (jsonDisabled.StartsWith("["))
-                                return Newtonsoft.Json.JsonConvert.DeserializeObject<DeviceInfo[]>(jsonDisabled);
-                            else
-                                return new[] { Newtonsoft.Json.JsonConvert.DeserializeObject<DeviceInfo>(jsonDisabled) };
+                            return json.StartsWith("[")
+                                ? Newtonsoft.Json.JsonConvert.DeserializeObject<DeviceInfo[]>(json)
+                                : new[] { Newtonsoft.Json.JsonConvert.DeserializeObject<DeviceInfo>(json) };
                         }
                         return null;
                     }
@@ -286,44 +240,32 @@ namespace USBApp
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка загрузки устройств: {ex.Message}");
-            }
-
-            if ((activeDevices == null || activeDevices.Length == 0) && (blockedDevices == null || blockedDevices.Length == 0))
-            {
-                MessageBox.Show("Никаких USB-устройств не вставлено!");
-                devicesTable.Clear();
+                overlayPanel.Visible = false;
                 return;
             }
 
-            // Обновляем NowDevices
-            NowDevices.Clear();
-            if (activeDevices != null) NowDevices.AddRange(activeDevices);
-            if (blockedDevices != null) NowDevices.AddRange(blockedDevices);
+            if (devices == null || devices.Length == 0)
+            {
+                devicesTable.Clear();
+                MessageBox.Show("Никаких USB-устройств не вставлено!");
+                overlayPanel.Visible = false;
+                return;
+            }
 
-            // Логика отображения сообщений
+            // Обновляем NowDevices и PastCopyNowDevices
+            NowDevices.Clear();
+            NowDevices.AddRange(devices);
+
+            // Проверяем изменения для уведомлений
             if (PastCopyNowDevices.Count > 0)
             {
-                CopyNowDevices = new List<DeviceInfo>(NowDevices);
-                var addedDevices = new List<DeviceInfo>(CopyNowDevices);
-                var removedDevices = new List<DeviceInfo>(PastCopyNowDevices);
+                var addedDevices = NowDevices.Where(nd => !PastCopyNowDevices.Any(pd => pd.InstanceId == nd.InstanceId)).ToList();
+                var removedDevices = PastCopyNowDevices.Where(pd => !NowDevices.Any(nd => nd.InstanceId == pd.InstanceId)).ToList();
 
-                // Сравнение и удаление совпадающих устройств
-                for (int i = addedDevices.Count - 1; i >= 0; i--)
-                {
-                    var device = addedDevices[i];
-                    var match = removedDevices.FirstOrDefault(d => d.InstanceId == device.InstanceId);
-                    if (match != null)
-                    {
-                        addedDevices.RemoveAt(i);
-                        removedDevices.Remove(match);
-                    }
-                }
-
-                // Формируем сообщение
                 StringBuilder message = new StringBuilder();
                 if (addedDevices.Count > 0)
                 {
-                    message.AppendLine("добавлены устройства:");
+                    message.AppendLine("Устройства добавлены:");
                     foreach (var device in addedDevices)
                     {
                         message.AppendLine($"- {device.DeviceName} ({device.InstanceId})");
@@ -331,7 +273,7 @@ namespace USBApp
                 }
                 if (removedDevices.Count > 0)
                 {
-                    message.AppendLine("устройства удалены:");
+                    message.AppendLine("Устройства удалены:");
                     foreach (var device in removedDevices)
                     {
                         message.AppendLine($"- {device.DeviceName} ({device.InstanceId})");
@@ -343,130 +285,88 @@ namespace USBApp
                 }
             }
 
-            // Копируем NowDevices в PastCopyNowDevices
-            PastCopyNowDevices = new List<DeviceInfo>(NowDevices);
+            PastCopyNowDevices.Clear();
+            PastCopyNowDevices.AddRange(NowDevices);
 
-
-            devicesTable.Clear(); // Очищаем таблицу перед добавлением новых данных
-
+            // Подготовка данных с учётом БД
+            devicesTable.Clear();
+            var devicesToUpdate = new List<(string VolumeName, string Description, string DeviceName, string InstanceId, string SerialNumber, string Access)>();
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-
-                // Добавляем активные устройства в таблицу
-                if (activeDevices != null && activeDevices.Length > 0)
+                foreach (var device in devices)
                 {
-                    foreach (var device in activeDevices)
-                    {
-                        string volumeName = device.VolumeName ?? "Не найдено";
-                        string description = device.Description ?? "Не найдено";
-                        string deviceName = device.DeviceName ?? "Не найдено";
-                        string instanceId = device.InstanceId ?? "Не найдено";
-                        string serialNumber = device.SerialNumber ?? "Не найдено";
+                    string instanceId = device.InstanceId ?? "Не найдено";
+                    string volumeName = device.VolumeName ?? "Не найдено";
+                    string description = device.Description ?? "Не найдено";
+                    string deviceName = device.DeviceName ?? "Не найдено";
+                    string serialNumber = device.SerialNumber ?? "Не найдено";
+                    string access = "разрешён"; // Значение по умолчанию
 
-                        string checkQuery = "SELECT COUNT(*) FROM Devices WHERE InstanceId = @InstanceId";
-                        using (SqlCommand cmd = new SqlCommand(checkQuery, conn))
+                    // Проверяем данные в БД
+                    string selectQuery = "SELECT VolumeName, Description, DeviceName, SerialNumber, Access FROM Devices WHERE InstanceId = @InstanceId";
+                    using (SqlCommand cmd = new SqlCommand(selectQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@InstanceId", instanceId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
                         {
-                            cmd.Parameters.AddWithValue("@InstanceId", instanceId);
-                            int count = (int)cmd.ExecuteScalar();
-                            if (count > 0)
+                            if (reader.Read())
                             {
-                                string existingQuery = "SELECT VolumeName, Description, DeviceName, InstanceId, SerialNumber FROM Devices WHERE InstanceId = @InstanceId";
-                                using (SqlCommand existingCmd = new SqlCommand(existingQuery, conn))
-                                {
-                                    existingCmd.Parameters.AddWithValue("@InstanceId", instanceId);
-                                    using (SqlDataReader reader = existingCmd.ExecuteReader())
-                                    {
-                                        if (reader.Read())
-                                        {
-                                            string dbVolumeName = reader["VolumeName"].ToString();
-                                            string dbDescription = reader["Description"].ToString();
-                                            string dbDeviceName = reader["DeviceName"].ToString();
-                                            string dbInstanceId = reader["InstanceId"].ToString();
-                                            string dbSerialNumber = reader["SerialNumber"].ToString();
-                                            reader.Close(); // Закрываем reader перед выполнением следующего запроса
-                                            if (dbDeviceName == deviceName && dbInstanceId == instanceId && dbSerialNumber == serialNumber && (dbVolumeName != volumeName || dbDescription != description))
-                                            {
-                                                string updateQuery = "UPDATE Devices SET VolumeName = @VolumeName, Description = @Description WHERE InstanceId = @InstanceId";
-                                                using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
-                                                {
-                                                    updateCmd.Parameters.AddWithValue("@VolumeName", volumeName);
-                                                    updateCmd.Parameters.AddWithValue("@Description", description);
-                                                    updateCmd.Parameters.AddWithValue("@InstanceId", instanceId);
-                                                    updateCmd.ExecuteNonQuery();
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                string insertQuery = "INSERT INTO Devices (VolumeName, Description, DeviceName, InstanceId, SerialNumber, Access) VALUES (@VolumeName, @Description, @DeviceName, @InstanceId, @SerialNumber, 'разрешён')";
-                                using (SqlCommand cmdInsert = new SqlCommand(insertQuery, conn))
-                                {
-                                    cmdInsert.Parameters.AddWithValue("@VolumeName", volumeName);
-                                    cmdInsert.Parameters.AddWithValue("@Description", description);
-                                    cmdInsert.Parameters.AddWithValue("@DeviceName", deviceName);
-                                    cmdInsert.Parameters.AddWithValue("@InstanceId", instanceId);
-                                    cmdInsert.Parameters.AddWithValue("@SerialNumber", serialNumber);
-                                    cmdInsert.ExecuteNonQuery();
-                                }
+                                volumeName = reader["VolumeName"].ToString() ?? volumeName;
+                                description = reader["Description"].ToString() ?? description;
+                                deviceName = reader["DeviceName"].ToString() ?? deviceName;
+                                serialNumber = reader["SerialNumber"].ToString() ?? serialNumber;
+                                access = reader["Access"].ToString() ?? access;
                             }
                         }
-
-                        // Добавляем в таблицу
-                        devicesTable.Rows.Add(volumeName, description, deviceName, instanceId, serialNumber, "разрешён");
                     }
+
+                    devicesTable.Rows.Add(volumeName, description, deviceName, instanceId, serialNumber, access);
+                    devicesToUpdate.Add((volumeName, description, deviceName, instanceId, serialNumber, access));
                 }
 
-                // Добавляем заблокированные устройства в таблицу
-                if (blockedDevices != null && blockedDevices.Length > 0)
+                // Пакетное обновление базы данных
+                foreach (var device in devicesToUpdate)
                 {
-                    foreach (var device in blockedDevices)
+                    string checkQuery = "SELECT COUNT(*) FROM Devices WHERE InstanceId = @InstanceId";
+                    using (SqlCommand cmd = new SqlCommand(checkQuery, conn))
                     {
-                        string instanceId = device.InstanceId ?? "Не найдено";
-                        string checkQuery = "SELECT COUNT(*) FROM Devices WHERE InstanceId = @InstanceId";
-                        using (SqlCommand cmd = new SqlCommand(checkQuery, conn))
+                        cmd.Parameters.AddWithValue("@InstanceId", device.InstanceId);
+                        int count = (int)cmd.ExecuteScalar();
+
+                        if (count > 0)
                         {
-                            cmd.Parameters.AddWithValue("@InstanceId", instanceId);
-                            int count = (int)cmd.ExecuteScalar();
-                            if (count > 0)
+                            string updateQuery = "UPDATE Devices SET VolumeName = @VolumeName, Description = @Description, DeviceName = @DeviceName, SerialNumber = @SerialNumber, Access = @Access WHERE InstanceId = @InstanceId";
+                            using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
                             {
-                                // Добавляем в таблицу
-                                string selectQuery = "SELECT VolumeName, Description, DeviceName, InstanceId, SerialNumber, Access FROM Devices WHERE InstanceId = @InstanceId";
-                                using (SqlDataAdapter adapter = new SqlDataAdapter(selectQuery, conn))
-                                {
-                                    adapter.SelectCommand.Parameters.AddWithValue("@InstanceId", instanceId);
-                                    DataTable tempTable = new DataTable();
-                                    adapter.Fill(tempTable);
-                                    foreach (DataRow row in tempTable.Rows)
-                                    {
-                                        devicesTable.ImportRow(row);
-                                    }
-                                }
+                                updateCmd.Parameters.AddWithValue("@VolumeName", device.VolumeName);
+                                updateCmd.Parameters.AddWithValue("@Description", device.Description);
+                                updateCmd.Parameters.AddWithValue("@DeviceName", device.DeviceName);
+                                updateCmd.Parameters.AddWithValue("@SerialNumber", device.SerialNumber);
+                                updateCmd.Parameters.AddWithValue("@Access", device.Access);
+                                updateCmd.Parameters.AddWithValue("@InstanceId", device.InstanceId);
+                                updateCmd.ExecuteNonQuery();
+                            }
+                        }
+                        else
+                        {
+                            string insertQuery = "INSERT INTO Devices (VolumeName, Description, DeviceName, InstanceId, SerialNumber, Access) VALUES (@VolumeName, @Description, @DeviceName, @InstanceId, @SerialNumber, @Access)";
+                            using (SqlCommand insertCmd = new SqlCommand(insertQuery, conn))
+                            {
+                                insertCmd.Parameters.AddWithValue("@VolumeName", device.VolumeName);
+                                insertCmd.Parameters.AddWithValue("@Description", device.Description);
+                                insertCmd.Parameters.AddWithValue("@DeviceName", device.DeviceName);
+                                insertCmd.Parameters.AddWithValue("@InstanceId", device.InstanceId);
+                                insertCmd.Parameters.AddWithValue("@SerialNumber", device.SerialNumber);
+                                insertCmd.Parameters.AddWithValue("@Access", device.Access);
+                                insertCmd.ExecuteNonQuery();
                             }
                         }
                     }
                 }
-
-                if (devicesTable.Rows.Count == 0)
-                {
-                    MessageBox.Show("Никаких USB-устройств не вставлено!");
-                }
             }
 
-            var allDevices = new List<DeviceInfo>();
-            if (activeDevices != null) allDevices.AddRange(activeDevices);
-            if (blockedDevices != null) allDevices.AddRange(blockedDevices);
-
-            if (allDevices.Count == 0)
-            {
-                MessageBox.Show("Никаких USB-устройств не вставлено!");
-                devicesTable.Clear();
-                return;
-            }
-            overlayPanel.Visible = false; // Деактивируем оверлей
+            overlayPanel.Visible = false;
         }
 
 
@@ -478,10 +378,13 @@ namespace USBApp
                 if (_watcher != null) _watcher.Stop(); // Останавливаем, если уже работает
                 var query = new WqlEventQuery("SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2 OR EventType = 3");
                 _watcher = new ManagementEventWatcher(query);
-                _watcher.EventArrived += async (s, e) =>
+                _watcher.EventArrived += (s, e) =>
                 {
-                    cachedDevices = null; // Сбрасываем кэш при изменении USB
-                    await Task.Run(() => this.Invoke((MethodInvoker)LoadDevices));
+                    if (!debounceTimer.Enabled) // Если таймер ещё не запущен
+                    {
+                        cachedDevices = null;   // Сбрасываем кэш, если он есть
+                        this.Invoke((MethodInvoker)debounceTimer.Start); // Вызов в потоке UI
+                    }
                 };
                 _watcher.Start();
             }
