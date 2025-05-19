@@ -33,6 +33,7 @@
             this.buttonUsers = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label1 = new System.Windows.Forms.Label();
+            this.radioButtonBlock = new System.Windows.Forms.RadioButton();
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -63,6 +64,7 @@
             // panel1
             // 
             this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(255)))), ((int)(((byte)(192)))));
+            this.panel1.Controls.Add(this.radioButtonBlock);
             this.panel1.Controls.Add(this.label1);
             this.panel1.Controls.Add(this.buttonDevices);
             this.panel1.Controls.Add(this.buttonUsers);
@@ -83,6 +85,18 @@
             this.label1.Size = new System.Drawing.Size(185, 62);
             this.label1.TabIndex = 2;
             this.label1.Text = "ВЫБОР";
+            // 
+            // radioButtonBlock
+            // 
+            this.radioButtonBlock.AutoSize = true;
+            this.radioButtonBlock.Font = new System.Drawing.Font("Yu Gothic UI Light", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.radioButtonBlock.Location = new System.Drawing.Point(146, 196);
+            this.radioButtonBlock.Name = "radioButtonBlock";
+            this.radioButtonBlock.Size = new System.Drawing.Size(232, 24);
+            this.radioButtonBlock.TabIndex = 3;
+            this.radioButtonBlock.TabStop = true;
+            this.radioButtonBlock.Text = "Блокировать новые устройства";
+            this.radioButtonBlock.UseVisualStyleBackColor = true;
             // 
             // EnterForm
             // 
@@ -107,5 +121,6 @@
         private System.Windows.Forms.Button buttonUsers;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.RadioButton radioButtonBlock;
     }
 }

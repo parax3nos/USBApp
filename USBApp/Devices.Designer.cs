@@ -32,6 +32,7 @@
             this.dataGridViewDevices = new System.Windows.Forms.DataGridView();
             this.bSave = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.bAuth = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewDevices)).BeginInit();
             this.panel1.SuspendLayout();
             this.SuspendLayout();
@@ -63,6 +64,7 @@
             // panel1
             // 
             this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(255)))), ((int)(((byte)(255)))));
+            this.panel1.Controls.Add(this.bAuth);
             this.panel1.Controls.Add(this.bSave);
             this.panel1.Controls.Add(this.dataGridViewDevices);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -70,6 +72,18 @@
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(1935, 746);
             this.panel1.TabIndex = 2;
+            // 
+            // bAuth
+            // 
+            this.bAuth.Font = new System.Drawing.Font("Times New Roman", 13.8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.bAuth.ForeColor = System.Drawing.Color.Black;
+            this.bAuth.Location = new System.Drawing.Point(1620, 682);
+            this.bAuth.Name = "bAuth";
+            this.bAuth.Size = new System.Drawing.Size(303, 54);
+            this.bAuth.TabIndex = 2;
+            this.bAuth.Text = "Авторизация";
+            this.bAuth.UseVisualStyleBackColor = true;
+            this.bAuth.Click += new System.EventHandler(this.bAuth_Click);
             // 
             // Devices
             // 
@@ -81,6 +95,7 @@
             this.Name = "Devices";
             this.Text = "Устройства";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Devices_FormClosing);
+            this.Load += new System.EventHandler(this.Devices_Load_1);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewDevices)).EndInit();
             this.panel1.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -92,5 +107,6 @@
         private System.Windows.Forms.DataGridView dataGridViewDevices;
         private System.Windows.Forms.Button bSave;
         private System.Windows.Forms.Panel panel1;
+        private System.Windows.Forms.Button bAuth;
     }
 }

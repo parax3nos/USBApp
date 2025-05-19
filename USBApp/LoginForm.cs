@@ -55,11 +55,8 @@ namespace USBApp
                             string storedHash = reader["Password"].ToString();
                             if (BCrypt.Net.BCrypt.Verify(password, storedHash)) // Сравниваем введённый пароль с хэшем
                             {
-                                Devices form = new Devices();
-                                this.Hide();
-                                var formMain = new Devices();
-                                formMain.Closed += (s, args) => this.Close();
-                                formMain.Show();
+                                this.DialogResult = DialogResult.OK; // Устанавливаем результат диалога
+                                this.Close(); // Закрываем форму авторизации
                             }
                             else
                             {
@@ -78,21 +75,6 @@ namespace USBApp
         private void LoginForm_Load(object sender, EventArgs e)
         {
 
-        }
-
-        private static LoginForm lgfrm;
-        public static LoginForm logForm
-        {
-            get
-            {
-                if (lgfrm == null || lgfrm.IsDisposed) lgfrm = new LoginForm();
-                return lgfrm;
-            }
-        }
-        public void ShowForm()
-        {
-            Show();
-            Activate();
         }
     }
 }

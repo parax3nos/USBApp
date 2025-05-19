@@ -12,6 +12,7 @@ namespace USBApp
 {
     public partial class EnterForm : Form
     {
+        public bool BlockNewDevices { get; set; } = true; // По умолчанию блокировать новые устройства
         public EnterForm()
         {
             InitializeComponent();
@@ -23,11 +24,14 @@ namespace USBApp
 
         private void buttonDevices_Click(object sender, EventArgs e)
         {
-            LoginForm form = new LoginForm();
-            this.Hide();
-            var formMain = new LoginForm();
-            formMain.Closed += (s, args) => this.Close();
-            formMain.Show();
+            using (var devicesForm = new Devices(this))
+            {
+                Devices form = new Devices(this);
+                this.Hide();
+                var formMain = new Devices(this);
+                formMain.Closed += (s, args) => this.Close();
+                formMain.Show();
+            }
         }
 
         private void buttonUsers_Click(object sender, EventArgs e)

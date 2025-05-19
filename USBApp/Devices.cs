@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Data.SqlClient;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,10 +24,15 @@ namespace USBApp
         private Panel overlayPanel;
         private List<DeviceInfo> cachedDevices;
         private System.Windows.Forms.Timer debounceTimer;
+        private readonly string logFilePath = "usb_log.txt"; // Путь к лог-файлу
+        private bool isAuthorized = false; // Флаг авторизации
+        private readonly EnterForm enterForm;
 
         // Вызов в конструкторе или при загрузке формы
-        public Devices()
+        public Devices(EnterForm enterForm, bool authorized = false)
         {
+            this.enterForm = enterForm;
+            isAuthorized = authorized; // Устанавливаем флаг авторизации
             InitializeComponent();
             debounceTimer = new System.Windows.Forms.Timer
             {
@@ -53,6 +59,7 @@ namespace USBApp
                 (screen.Width - this.Width) / 2,
                 0);
             InitializeDataGridView();
+            SetAuthorizationUI();
             LoadDevices();
             this.Load += Devices_Load;
         }
@@ -173,6 +180,36 @@ namespace USBApp
             public string Status { get; set; } // Для заблокированных устройств
         }
 
+        // Метод для логирования событий
+        private void LogEvent(string eventType, string instanceId, string deviceName)
+        {
+            string logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {eventType} - InstanceId: {instanceId}, DeviceName: {deviceName}";
+            try
+            {
+                File.AppendAllText(logFilePath, logEntry + Environment.NewLine);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка записи в лог: {ex.Message}");
+            }
+        }
+
+        private void SetAuthorizationUI()
+        {
+            if (isAuthorized)
+            {
+                bSave.Visible = true; // Показываем кнопку "Сохранить изменения"
+                bAuth.Visible = false; // Скрываем кнопку "Авторизация"
+                dataGridViewDevices.Columns["Access"].ReadOnly = false; // Разрешаем редактирование ComboBox
+            }
+            else
+            {
+                bSave.Visible = false; // Скрываем кнопку "Сохранить изменения"
+                bAuth.Visible = true; // Показываем кнопку "Авторизация"
+                dataGridViewDevices.Columns["Access"].ReadOnly = true; // Запрещаем редактирование ComboBox
+            }
+        }
+
         private async void LoadDevices()
         {
             overlayPanel.Visible = true;
@@ -256,7 +293,7 @@ namespace USBApp
             NowDevices.Clear();
             NowDevices.AddRange(devices);
 
-            // Проверяем изменения для уведомлений
+            // Проверяем изменения для уведомлений и логирования
             if (PastCopyNowDevices.Count > 0)
             {
                 var addedDevices = NowDevices.Where(nd => !PastCopyNowDevices.Any(pd => pd.InstanceId == nd.InstanceId)).ToList();
@@ -269,6 +306,7 @@ namespace USBApp
                     foreach (var device in addedDevices)
                     {
                         message.AppendLine($"- {device.DeviceName} ({device.InstanceId})");
+                        LogEvent("Подключено", device.InstanceId, device.DeviceName); // Логирование подключения
                     }
                 }
                 if (removedDevices.Count > 0)
@@ -277,6 +315,7 @@ namespace USBApp
                     foreach (var device in removedDevices)
                     {
                         message.AppendLine($"- {device.DeviceName} ({device.InstanceId})");
+                        LogEvent("Отключено", device.InstanceId, device.DeviceName); // Логирование отключения
                     }
                 }
                 if (message.Length > 0)
@@ -336,6 +375,7 @@ namespace USBApp
 
                         if (count > 0)
                         {
+                            // Обновляем существующие устройства, но не трогаем Access
                             string updateQuery = "UPDATE Devices SET VolumeName = @VolumeName, Description = @Description, DeviceName = @DeviceName, SerialNumber = @SerialNumber, Access = @Access WHERE InstanceId = @InstanceId";
                             using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
                             {
@@ -350,6 +390,7 @@ namespace USBApp
                         }
                         else
                         {
+                            // Вставляем новое устройство с установленным доступом
                             string insertQuery = "INSERT INTO Devices (VolumeName, Description, DeviceName, InstanceId, SerialNumber, Access) VALUES (@VolumeName, @Description, @DeviceName, @InstanceId, @SerialNumber, @Access)";
                             using (SqlCommand insertCmd = new SqlCommand(insertQuery, conn))
                             {
@@ -424,6 +465,11 @@ namespace USBApp
                                 changesMade = true;
                             }
 
+                            // Логирование блокировки или разблокировки
+                            string eventType = newAccess == "разрешён" ? "Разблокировано" : "Заблокировано";
+                            string deviceName = row["DeviceName"].ToString();
+                            LogEvent(eventType, instanceId, deviceName);
+
                             // Обновление БД
                             string updateQuery = "UPDATE Devices SET Access = @Access WHERE InstanceId = @InstanceId";
                             using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
@@ -465,6 +511,23 @@ namespace USBApp
         private void Devices_FormClosing(object sender, FormClosingEventArgs e)
         {
             e.Cancel = MessageBox.Show("Вы хотите закрыть программу?", "Внимание", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes;
+        }
+
+        private void bAuth_Click(object sender, EventArgs e)
+        {
+            using (var authForm = new LoginForm())
+            {
+                if (authForm.ShowDialog() == DialogResult.OK)
+                {
+                    isAuthorized = true;
+                    SetAuthorizationUI();
+                }
+            }
+        }
+
+        private void Devices_Load_1(object sender, EventArgs e)
+        {
+
         }
     }
 }
