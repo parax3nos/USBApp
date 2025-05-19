@@ -81,7 +81,6 @@
             this.Name = "Devices";
             this.Text = "Устройства";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Devices_FormClosing);
-            this.Load += new System.EventHandler(this.Devices_Load);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewDevices)).EndInit();
             this.panel1.ResumeLayout(false);
             this.ResumeLayout(false);

@@ -44,6 +44,11 @@ namespace USBApp
                 0);
             InitializeDataGridView();
             LoadDevices();
+            this.Load += Devices_Load;
+        }
+
+        private void Devices_Load(object sender, EventArgs e)
+        {
             StartUSBMonitoring();
         }
 
@@ -486,81 +491,72 @@ namespace USBApp
             }
         }
 
-        // Остановка мониторинга при закрытии формы
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (_watcher != null)
-            {
-                _watcher.Stop();
-                _watcher.Dispose();
-                _watcher = null;
-            }
-            base.OnFormClosing(e);
-        }
-
         private void bSave_Click(object sender, EventArgs e)
         {
-            overlayPanel.Visible = true;
+            bool changesMade = false;
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
-                Parallel.ForEach(devicesTable.Rows.Cast<DataRow>(), row =>
+
+                foreach (DataRow row in devicesTable.Rows)
                 {
                     string instanceId = row["InstanceId"].ToString();
-                    string access = row["Access"].ToString();
+                    string newAccess = row["Access"].ToString();
 
-                    // Обновление БД
-                    string updateQuery = "UPDATE Devices SET Access = @Access WHERE InstanceId = @InstanceId";
-                    using (SqlConnection innerConn = new SqlConnection(connectionString)) // Отдельное соединение для каждого потока
+                    // Проверяем текущее значение в БД
+                    string selectQuery = "SELECT Access FROM Devices WHERE InstanceId = @InstanceId";
+                    using (SqlCommand selectCmd = new SqlCommand(selectQuery, conn))
                     {
-                        innerConn.Open();
-                        using (SqlCommand cmd = new SqlCommand(updateQuery, innerConn))
+                        selectCmd.Parameters.AddWithValue("@InstanceId", instanceId);
+                        object result = selectCmd.ExecuteScalar();
+                        string currentAccess = result != null ? result.ToString() : null;
+
+                        // Если настройка изменилась
+                        if (currentAccess != newAccess)
                         {
-                            cmd.Parameters.AddWithValue("@Access", access);
-                            cmd.Parameters.AddWithValue("@InstanceId", instanceId);
-                            cmd.ExecuteNonQuery();
+                            if (!changesMade)
+                            {
+                                overlayPanel.Visible = true;
+                                changesMade = true;
+                            }
+
+                            // Обновление БД
+                            string updateQuery = "UPDATE Devices SET Access = @Access WHERE InstanceId = @InstanceId";
+                            using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
+                            {
+                                updateCmd.Parameters.AddWithValue("@Access", newAccess);
+                                updateCmd.Parameters.AddWithValue("@InstanceId", instanceId);
+                                updateCmd.ExecuteNonQuery();
+                            }
+
+                            // Выполнение PowerShell-команды
+                            using (PowerShell ps = PowerShell.Create())
+                            {
+                                string psCommand = newAccess == "разрешён"
+                                    ? $"Enable-PnpDevice -InstanceId '{instanceId}' -Confirm:$false"
+                                    : $"Disable-PnpDevice -InstanceId '{instanceId}' -Confirm:$false";
+                                ps.AddScript(psCommand);
+                                ps.Invoke();
+                                if (ps.HadErrors)
+                                {
+                                    this.Invoke((MethodInvoker)(() => MessageBox.Show($"Ошибка PowerShell для {instanceId}: {ps.Streams.Error}")));
+                                }
+                            }
                         }
                     }
-
-                    // Выполнение PowerShell-команды
-                    using (PowerShell ps = PowerShell.Create())
-                    {
-                        string psCommand = access == "разрешён"
-                            ? $"Enable-PnpDevice -InstanceId '{instanceId}' -Confirm:$false"
-                            : $"Disable-PnpDevice -InstanceId '{instanceId}' -Confirm:$false";
-                        ps.AddScript(psCommand);
-                        ps.Invoke();
-                        if (ps.HadErrors)
-                        {
-                            this.Invoke((MethodInvoker)(() => MessageBox.Show($"Ошибка PowerShell для {instanceId}: {ps.Streams.Error}")));
-                        }
-                    }
-                });
+                }
             }
 
-            overlayPanel.Visible = false;
-            MessageBox.Show("Изменения сохранены.");
-        }
-
-        private static Devices dvcs;
-        public static Devices devices
-        {
-            get
+            if (changesMade)
             {
-                if (dvcs == null || dvcs.IsDisposed) dvcs = new Devices();
-                return dvcs;
+                overlayPanel.Visible = false;
+                MessageBox.Show("Изменения сохранены.");
             }
-        }
-        public void ShowForm()
-        {
-            Show();
-            Activate();
-        }
-
-        private void Devices_Load(object sender, EventArgs e)
-        {
-
+            else
+            {
+                MessageBox.Show("Настройки доступа не изменились.");
+            }
         }
 
         private void Devices_FormClosing(object sender, FormClosingEventArgs e)
