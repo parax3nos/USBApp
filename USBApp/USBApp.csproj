@@ -101,6 +101,12 @@
     <Compile Include="EnterForm.Designer.cs">
       <DependentUpon>EnterForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="EnterMasterKeyForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="EnterMasterKeyForm.Designer.cs">
+      <DependentUpon>EnterMasterKeyForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -123,6 +129,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="EnterForm.resx">
       <DependentUpon>EnterForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="EnterMasterKeyForm.resx">
+      <DependentUpon>EnterMasterKeyForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="LoginForm.resx">
       <DependentUpon>LoginForm.cs</DependentUpon>
