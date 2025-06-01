@@ -51,27 +51,24 @@
             // 
             this.tbLogin.Font = new System.Drawing.Font("Segoe UI", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.tbLogin.Location = new System.Drawing.Point(58, 71);
-            this.tbLogin.Multiline = true;
             this.tbLogin.Name = "tbLogin";
-            this.tbLogin.Size = new System.Drawing.Size(405, 49);
+            this.tbLogin.Size = new System.Drawing.Size(405, 43);
             this.tbLogin.TabIndex = 0;
             // 
             // tbPassword
             // 
             this.tbPassword.Font = new System.Drawing.Font("Segoe UI", 16.2F);
             this.tbPassword.Location = new System.Drawing.Point(58, 164);
-            this.tbPassword.Multiline = true;
             this.tbPassword.Name = "tbPassword";
-            this.tbPassword.Size = new System.Drawing.Size(405, 49);
+            this.tbPassword.Size = new System.Drawing.Size(405, 43);
             this.tbPassword.TabIndex = 1;
             // 
             // tbMasterPassword
             // 
             this.tbMasterPassword.Font = new System.Drawing.Font("Segoe UI", 16.2F);
             this.tbMasterPassword.Location = new System.Drawing.Point(27, 68);
-            this.tbMasterPassword.Multiline = true;
             this.tbMasterPassword.Name = "tbMasterPassword";
-            this.tbMasterPassword.Size = new System.Drawing.Size(405, 53);
+            this.tbMasterPassword.Size = new System.Drawing.Size(405, 43);
             this.tbMasterPassword.TabIndex = 3;
             // 
             // label1
@@ -192,9 +189,8 @@
             // 
             this.tbNewPassword.Font = new System.Drawing.Font("Segoe UI", 16.2F);
             this.tbNewPassword.Location = new System.Drawing.Point(58, 299);
-            this.tbNewPassword.Multiline = true;
             this.tbNewPassword.Name = "tbNewPassword";
-            this.tbNewPassword.Size = new System.Drawing.Size(405, 49);
+            this.tbNewPassword.Size = new System.Drawing.Size(405, 43);
             this.tbNewPassword.TabIndex = 11;
             // 
             // Users
