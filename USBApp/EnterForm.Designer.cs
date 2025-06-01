@@ -33,7 +33,7 @@
             this.buttonUsers = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label1 = new System.Windows.Forms.Label();
-            this.cbBlock = new System.Windows.Forms.CheckBox();
+            this.radioButtonBlock = new System.Windows.Forms.RadioButton();
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -41,7 +41,7 @@
             // 
             this.buttonDevices.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
             this.buttonDevices.Font = new System.Drawing.Font("Yu Gothic UI Semibold", 16.2F, ((System.Drawing.FontStyle)((System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic))), System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.buttonDevices.Location = new System.Drawing.Point(133, 95);
+            this.buttonDevices.Location = new System.Drawing.Point(133, 99);
             this.buttonDevices.Name = "buttonDevices";
             this.buttonDevices.Size = new System.Drawing.Size(245, 93);
             this.buttonDevices.TabIndex = 0;
@@ -53,7 +53,7 @@
             // 
             this.buttonUsers.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.buttonUsers.Font = new System.Drawing.Font("Yu Gothic UI Semibold", 16.2F, ((System.Drawing.FontStyle)((System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic))));
-            this.buttonUsers.Location = new System.Drawing.Point(96, 234);
+            this.buttonUsers.Location = new System.Drawing.Point(96, 229);
             this.buttonUsers.Name = "buttonUsers";
             this.buttonUsers.Size = new System.Drawing.Size(315, 109);
             this.buttonUsers.TabIndex = 1;
@@ -64,7 +64,7 @@
             // panel1
             // 
             this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(255)))), ((int)(((byte)(192)))));
-            this.panel1.Controls.Add(this.cbBlock);
+            this.panel1.Controls.Add(this.radioButtonBlock);
             this.panel1.Controls.Add(this.label1);
             this.panel1.Controls.Add(this.buttonDevices);
             this.panel1.Controls.Add(this.buttonUsers);
@@ -86,16 +86,17 @@
             this.label1.TabIndex = 2;
             this.label1.Text = "ВЫБОР";
             // 
-            // cbBlock
+            // radioButtonBlock
             // 
-            this.cbBlock.AutoSize = true;
-            this.cbBlock.Font = new System.Drawing.Font("Yu Gothic UI Light", 9F);
-            this.cbBlock.Location = new System.Drawing.Point(141, 189);
-            this.cbBlock.Name = "cbBlock";
-            this.cbBlock.Size = new System.Drawing.Size(233, 24);
-            this.cbBlock.TabIndex = 4;
-            this.cbBlock.Text = "Блокировать новые устройства";
-            this.cbBlock.UseVisualStyleBackColor = true;
+            this.radioButtonBlock.AutoSize = true;
+            this.radioButtonBlock.Font = new System.Drawing.Font("Yu Gothic UI Light", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+            this.radioButtonBlock.Location = new System.Drawing.Point(146, 196);
+            this.radioButtonBlock.Name = "radioButtonBlock";
+            this.radioButtonBlock.Size = new System.Drawing.Size(232, 24);
+            this.radioButtonBlock.TabIndex = 3;
+            this.radioButtonBlock.TabStop = true;
+            this.radioButtonBlock.Text = "Блокировать новые устройства";
+            this.radioButtonBlock.UseVisualStyleBackColor = true;
             // 
             // EnterForm
             // 
@@ -120,6 +121,6 @@
         private System.Windows.Forms.Button buttonUsers;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.CheckBox cbBlock;
+        private System.Windows.Forms.RadioButton radioButtonBlock;
     }
 }

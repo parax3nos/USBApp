@@ -66,8 +66,9 @@
             this.tbPassword.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.tbPassword.Font = new System.Drawing.Font("Segoe UI", 16.2F);
             this.tbPassword.Location = new System.Drawing.Point(37, 240);
+            this.tbPassword.Multiline = true;
             this.tbPassword.Name = "tbPassword";
-            this.tbPassword.Size = new System.Drawing.Size(405, 43);
+            this.tbPassword.Size = new System.Drawing.Size(405, 49);
             this.tbPassword.TabIndex = 7;
             // 
             // tbLogin
@@ -75,8 +76,9 @@
             this.tbLogin.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.tbLogin.Font = new System.Drawing.Font("Segoe UI", 16.2F);
             this.tbLogin.Location = new System.Drawing.Point(37, 129);
+            this.tbLogin.Multiline = true;
             this.tbLogin.Name = "tbLogin";
-            this.tbLogin.Size = new System.Drawing.Size(405, 43);
+            this.tbLogin.Size = new System.Drawing.Size(405, 49);
             this.tbLogin.TabIndex = 6;
             // 
             // bEnter
