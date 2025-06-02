@@ -393,16 +393,22 @@ namespace USBApp
                             // Устанавливаем доступ в зависимости от состояния чекбокса в EnterForm
                             string access = enterForm.BlockNewDevices ? "запрещён" : "разрешён";
                             // Выполняем PowerShell-команду для нового устройства
-                            using (PowerShell ps = PowerShell.Create())
+                            if (enterForm.BlockNewDevices)
                             {
-                                string psCommand = enterForm.BlockNewDevices
-                                    ? $"Disable-PnpDevice -InstanceId '{device.InstanceId}' -Confirm:$false"
-                                    : $"Enable-PnpDevice -InstanceId '{device.InstanceId}' -Confirm:$false";
-                                ps.AddScript(psCommand);
-                                ps.Invoke();
-                                if (ps.HadErrors)
+                                using (PowerShell ps = PowerShell.Create())
                                 {
-                                    this.Invoke((MethodInvoker)(() => MessageBox.Show($"Ошибка PowerShell для {device.InstanceId}: {ps.Streams.Error}")));
+                                    string psCommand = $"Disable-PnpDevice -InstanceId '{device.InstanceId}' -Confirm:$false";
+                                    ps.AddScript(psCommand);
+                                    ps.Invoke();
+                                    if (ps.HadErrors)
+                                    {
+                                        this.Invoke((MethodInvoker)(() => MessageBox.Show($"Ошибка PowerShell для {device.InstanceId}: {ps.Streams.Error}")));
+                                        LogEvent("Ошибка блокировки", device.InstanceId, device.DeviceName);
+                                    }
+                                    else
+                                    {
+                                        LogEvent("Заблокировано", device.InstanceId, device.DeviceName);
+                                    }
                                 }
                             }
                             // Вставляем новое устройство с установленным доступом
